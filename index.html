@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Public Bahan - পাবলিক পরিবহন ব্যবস্থাপনা</title>
+    <!-- Tailwind CSS for UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QR Code Generator & Scanner CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- Leaflet OpenStreetMap for GPS Tracking -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: '#FFCC00',
+                        brandDark: '#E6B800',
+                        darkBg: '#121212',
+                        cardBg: '#1E1E1E'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { background-color: #121212; color: #FFFFFF; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #map { height: 300px; width: 100%; border-radius: 12px; }
+        .yellow-btn { background-color: #FFCC00; color: #000; font-weight: bold; }
+        .yellow-btn:hover { background-color: #E6B800; }
+    </style>
+</head>
+<body class="pb-20">
+
+    <!-- Header Navigation -->
+    <header class="bg-brand text-black p-4 sticky top-0 z-50 flex justify-between items-center shadow-lg">
+        <div class="flex items-center gap-2 cursor-pointer" id="appLogoBtn" onclick="handleLogoClick()">
+            <i class="fa-solid fa-bus text-2xl"></i>
+            <h1 class="text-xl font-black uppercase tracking-wider">Public Bahan</h1>
+        </div>
+        <div class="flex items-center gap-2">
+            <button onclick="toggleLanguage()" id="langBtn" class="bg-black text-white text-xs px-3 py-1.5 rounded-full font-semibold">
+                <i class="fa-solid fa-language"></i> English
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Dynamic Content Container -->
+    <main id="appContent" class="p-4 max-w-md mx-auto">
+        
+        <!-- Welcome Banner -->
+        <div class="bg-cardBg p-4 rounded-xl border border-yellow-500/30 text-center mb-5">
+            <h2 class="text-lg font-bold text-brand mb-1" id="welcomeTxt">ওয়েস্ট বেঙ্গল এর নিজস্ব ডিজিটাল পরিবহন সিস্টেম</h2>
+            <p class="text-xs text-gray-400" id="subWelcomeTxt">জয়! মাত্র ১০ টাকায় আপনার পরিবহন সার্ভিস ডিজিটালাইজ করুন।</p>
+        </div>
+
+        <!-- Role Selector / Main Navigation Grid -->
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <button onclick="switchView('customer')" class="bg-cardBg p-4 rounded-xl border border-gray-700 hover:border-brand text-center transition">
+                <i class="fa-solid fa-users text-3xl text-brand mb-2"></i>
+                <div class="font-bold text-sm">যাত্রী / Customer</div>
+            </button>
+            <button onclick="switchView('stand')" class="bg-cardBg p-4 rounded-xl border border-gray-700 hover:border-brand text-center transition">
+                <i class="fa-solid fa-charging-station text-3xl text-brand mb-2"></i>
+                <div class="font-bold text-sm">স্ট্যান্ড ম্যানেজার</div>
+            </button>
+            <button onclick="switchView('owner')" class="bg-cardBg p-4 rounded-xl border border-gray-700 hover:border-brand text-center transition">
+                <i class="fa-solid fa-user-tie text-3xl text-brand mb-2"></i>
+                <div class="font-bold text-sm">গাড়ির মালিক</div>
+            </button>
+            <button onclick="switchView('driver')" class="bg-cardBg p-4 rounded-xl border border-gray-700 hover:border-brand text-center transition">
+                <i class="fa-solid fa-id-card text-3xl text-brand mb-2"></i>
+                <div class="font-bold text-sm">ড্রাইভার / কন্ডাক্টর</div>
+            </button>
+        </div>
+
+        <!-- Dynamic View Sections -->
+        <div id="viewContainer">
+            
+            <!-- Default Home View: Customer Module -->
+            <div id="customerView" class="space-y-4">
+                <div class="bg-cardBg p-4 rounded-xl">
+                    <h3 class="font-bold text-brand mb-3"><i class="fa-solid fa-qrcode"></i> কিউআর কোড স্ক্যান করে তথ্য দেখুন</h3>
+                    <div id="reader" class="overflow-hidden rounded-lg"></div>
+                    <button onclick="startScanner()" class="w-full mt-3 yellow-btn py-2 rounded-lg text-sm"><i class="fa-solid fa-camera"></i> ক্যামেরা চালু করুন</button>
+                </div>
+
+                <div class="bg-cardBg p-4 rounded-xl">
+                    <h3 class="font-bold text-brand mb-2"><i class="fa-solid fa-map-location-dot"></i> লাইভ যানবাহন ট্র্যাকিং</h3>
+                    <div id="map" class="mb-3"></div>
+                    <div class="text-xs text-gray-400">ম্যাপে রিয়েল-টাইমে ২ সেকেন্ড পর পর আপডেট হয়।</div>
+                </div>
+
+                <!-- Instant Ticket Booking -->
+                <div class="bg-cardBg p-4 rounded-xl space-y-3">
+                    <h3 class="font-bold text-brand"><i class="fa-solid fa-ticket"></i> ডিজিটাল টিকিট কাটুন</h3>
+                    <input type="text" id="ticketFrom" placeholder="কোথা থেকে (স্ট্যান্ড/লোকেশন)" class="w-full p-2 bg-black border border-gray-700 rounded text-sm text-white">
+                    <input type="text" id="ticketTo" placeholder="কোথায় যাবেন" class="w-full p-2 bg-black border border-gray-700 rounded text-sm text-white">
+                    <button onclick="generateTicket()" class="w-full yellow-btn py-2 rounded text-sm"><i class="fa-solid fa-check-circle"></i> ভাড়া দেখুন ও টিকিট জেনারেট করুন</button>
+                    <div id="ticketResult" class="hidden bg-black p-3 rounded border border-brand text-center">
+                        <p class="text-xs text-gray-300">আনুমানিক ভাড়া:</p>
+                        <p class="text-xl font-black text-brand mb-2">₹ <span id="fareAmount">২০.০০</span></p>
+                        <div id="ticketQRCode" class="flex justify-center my-2"></div>
+                        <p class="text-xs text-green-400">স্ক্যান প্রস্তুত! কন্ডাক্টরকে দেখিয়ে নিশ্চিত করুন।</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stand Manager Module -->
+            <div id="standView" class="hidden space-y-4">
+                <div class="bg-cardBg p-4 rounded-xl">
+                    <h3 class="font-bold text-brand mb-3"><i class="fa-solid fa-clipboard-list"></i> স্ট্যান্ড প্যানেল রেজিস্ট্রেশন</h3>
+                    <form onsubmit="handleRegistration(event, 'Stand Manager')" class="space-y-3 text-sm">
+                        <input type="text" placeholder="স্ট্যান্ডের নাম" required class="w-full p-2 bg-black border border-gray-700 rounded text-white">
+                        <input type="text" placeholder="ম্যানেজারের নাম" required class="w-full p-2 bg-black border border-gray-700 rounded text-white">
+                        <input type="tel" placeholder="মোবাইল নম্বর" required class="w-full p-2 bg-black border border-gray-700 rounded text-white">
+                        <button type="submit" class="w-full yellow-btn py-2 rounded font-bold">রেজিস্ট্রেশন করুন (ওটিপি লাগবে না)</button>
+                    </form>
+                </div>
+                <div class="bg-cardBg p-4 rounded-xl">
+                    <h3 class="font-bold text-brand mb-2">গাড়ি ইন / আউট ইনস্পেকশন</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="alert('গাড়ি সফলভাবে IN রেকর্ড করা হয়েছে।')" class="bg-green-600 font-bold p-3 rounded text-sm"><i class="fa-solid fa-arrow-down-left-and-arrow-up-right-to-center"></i> কার IN স্ক্যান</button>
+                        <button onclick="alert('গাড়ি সফলভাবে OUT রেকর্ড করা হয়েছে।')" class="bg-red-600 font-bold p-3 rounded text-sm"><i class="fa-solid fa-arrow-up-right-from-square"></i> কার OUT স্ক্যান</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vehicle Owner Module -->
+            <div id="ownerView" class="hidden space-y-4">
+                <div class="bg-cardBg p-4 rounded-xl space-y-3">
+                    <h3 class="font-bold text-brand"><i class="fa-solid fa-bus"></i> মালিকের ড্যাশবোর্ড ও সাবস্ক্রিপশন</h3>
+                    <p class="text-xs text-gray-300">প্রতিদিন মাত্র ₹১০ সাবস্ক্রিপশনে আপনার সমস্ত গাড়ির হিসাব রাখুন।</p>
+                    <select id="subDays" class="w-full p-2 bg-black border border-gray-700 rounded text-sm text-white">
+                        <option value="1">১ দিন - ₹১০</option>
+                        <option value="7">৭ দিন - ₹৭০</option>
+                        <option value="30">১ মাস - ₹৩০০</option>
+                    </select>
+                    <button onclick="processSubscription()" class="w-full yellow-btn py-2 rounded text-sm font-bold"><i class="fa-brands fa-whatsapp"></i> সাবস্ক্রিপশন রিকোয়েস্ট পাঠান</button>
+                </div>
+
+                <div class="bg-cardBg p-4 rounded-xl">
+                    <h3 class="font-bold text-brand mb-2">গাড়ির আয় ও লাইভ স্ট্যাটাস</h3>
+                    <div class="p-3 bg-black rounded border border-gray-800 text-xs space-y-1">
+                        <p>মোট সক্রিয় গাড়ি: <span class="font-bold text-brand">২ টি</span></p>
+                        <p>আজকের মোট সংগ্রহ: <span class="font-bold text-green-400">₹ ১,৪৫০</span></p>
+                        <p>মোট যাত্রীর সংখ্যা: <span class="font-bold text-white">৭৩ জন</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Driver/Conductor Module -->
+            <div id="driverView" class="hidden space-y-4">
+                <div class="bg-cardBg p-4 rounded-xl space-y-3">
+                    <h3 class="font-bold text-brand"><i class="fa-solid fa-circle-play"></i> ড্রাইভার লাইভ ট্র্যাকিং মোড</h3>
+                    <button id="gpsToggleBtn" onclick="toggleGPSTracking()" class="w-full bg-blue-600 font-bold py-3 rounded text-sm"><i class="fa-solid fa-location-crosshairs"></i> লাইভ ট্র্যাকিং অন করুন</button>
+                    <div id="driverStatus" class="text-xs text-center text-gray-400">ট্র্যাকিং বন্ধ রয়েছে।</div>
+                </div>
+            </div>
+
+            <!-- Admin Panel (Hidden by default, unlocked with 7-tap password) -->
+            <div id="adminView" class="hidden space-y-4">
+                <div class="bg-cardBg p-4 rounded-xl border border-red-500 space-y-3">
+                    <h3 class="font-bold text-red-500"><i class="fa-solid fa-user-shield"></i> সুপার অ্যাডমিন প্যানেল</h3>
+                    <p class="text-xs text-gray-400">কোম্পানির নাম: Public Bahan</p>
+                    <div class="space-y-2">
+                        <button onclick="alert('সমস্ত সাবস্ক্রিপশন সফলভাবে যাচাই করা হয়েছে।')" class="w-full bg-green-700 py-2 rounded text-xs font-bold">পেন্ডিং সাবস্ক্রিপশন অ্যাক্টিভ করুন</button>
+                        <button onclick="alert('সিস্টেম ডাটা রিফ্রেশ করা হয়েছে।')" class="w-full bg-yellow-600 text-black py-2 rounded text-xs font-bold">এআই সিস্টেম রিস্টার্ট ও ডাটা ক্লিয়ার</button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Bottom Action Bar -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-cardBg border-t border-gray-800 flex justify-around p-2 text-xs">
+        <button onclick="switchView('customer')" class="flex flex-col items-center text-gray-400 hover:text-brand">
+            <i class="fa-solid fa-house text-base"></i><span>হোম</span>
+        </button>
+        <button onclick="switchView('customer')" class="flex flex-col items-center text-gray-400 hover:text-brand">
+            <i class="fa-solid fa-qrcode text-base"></i><span>স্ক্যানার</span>
+        </button>
+        <button onclick="switchView('owner')" class="flex flex-col items-center text-gray-400 hover:text-brand">
+            <i class="fa-solid fa-wallet text-base"></i><span>রিচার্জ</span>
+        </button>
+    </nav>
+
+    <!-- Application Script Engine -->
+    <script>
+        // Firebase Configuration Integration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDJmu9uD5rT5ee1jNLpMQaTVIa_-yTrPzw",
+            authDomain: "public-service-11054.firebaseapp.com",
+            databaseURL: "https://public-service-11054-default-rtdb.firebaseio.com",
+            projectId: "public-service-11054",
+            storageBucket: "public-service-11054.firebasestorage.app",
+            messagingSenderId: "639313474404",
+            appId: "1:639313474404:web:9ac4645e521021c044c071",
+            measurementId: "G-ZMCRHQ4VC3"
+        };
+
+        // App System Variables
+        let logoClickCount = 0;
+        let isEnglish = false;
+        let isTracking = false;
+        let gpsWatchId = null;
+        let map, marker;
+
+        // View Navigation Engine
+        function switchView(viewName) {
+            const views = ['customerView', 'standView', 'ownerView', 'driverView', 'adminView'];
+            views.forEach(v => {
+                const el = document.getElementById(v);
+                if(el) el.classList.add('hidden');
+            });
+            const target = document.getElementById(viewName + 'View');
+            if(target) target.classList.remove('hidden');
+            
+            if(viewName === 'customer' && !map) {
+                setTimeout(initMap, 200);
+            }
+        }
+
+        // Initialize Map for GPS Tracking
+        function initMap() {
+            map = L.map('map').setView([22.5726, 88.3639], 12); // Default Kolkata coordinates
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+            marker = L.marker([22.5726, 88.3639]).addTo(map).bindPopup("পাবলিক বাহন - লাইভ ট্র্যাকিং").openPopup();
+        }
+
+        // Logo 7-Tap Secret Access for Admin Panel
+        function handleLogoClick() {
+            logoClickCount++;
+            if (logoClickCount === 7) {
+                logoClickCount = 0;
+                const password = prompt("সুপার অ্যাডমিন পাসওয়ার্ড দিন:");
+                if (password === "7876482550000") {
+                    alert("অ্যাডমিন এক্সেস অনুমোদিত হয়েছে!");
+                    switchView('admin');
+                } else {
+                    alert("ভুল পাসওয়ার্ড!");
+                }
+            }
+        }
+
+        // Voice Announcement & Language Engine
+        function speak(text, lang) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = lang;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function toggleLanguage() {
+            isEnglish = !isEnglish;
+            const langBtn = document.getElementById('langBtn');
+            const welcomeTxt = document.getElementById('welcomeTxt');
+            const subWelcomeTxt = document.getElementById('subWelcomeTxt');
+
+            if(isEnglish) {
+                langBtn.innerHTML = '<i class="fa-solid fa-language"></i> বাংলা';
+                welcomeTxt.innerText = "West Bengal's Own Digital Transit System";
+                subWelcomeTxt.innerText = "Digitize your transport service for just ₹10 daily.";
+                speak("Swagatam! Public Bahan system initialized in English.", 'en-IN');
+            } else {
+                langBtn.innerHTML = '<i class="fa-solid fa-language"></i> English';
+                welcomeTxt.innerText = "ওয়েস্ট বেঙ্গল এর নিজস্ব ডিজিটাল পরিবহন সিস্টেম";
+                subWelcomeTxt.innerText = "জয়! মাত্র ১০ টাকায় আপনার পরিবহন সার্ভিস ডিজিটালাইজ করুন।";
+                speak("ওয়েস্ট বেঙ্গল এ তৈরি পাবলিক বাহন সিস্টেমে আপনাকে স্বাগতম।", 'bn-IN');
+            }
+        }
+
+        // Live GPS Tracking Toggle
+        function toggleGPSTracking() {
+            const btn = document.getElementById('gpsToggleBtn');
+            const status = document.getElementById('driverStatus');
+
+            if (!isTracking) {
+                if ("geolocation" in navigator) {
+                    gpsWatchId = navigator.geolocation.watchPosition((position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        if(map && marker) {
+                            marker.setLatLng([lat, lng]);
+                            map.panTo([lat, lng]);
+                        }
+                    }, (err) => console.error(err), { enableHighAccuracy: true, maximumAge: 2000 });
+                    
+                    isTracking = true;
+                    btn.classList.remove('bg-blue-600');
+                    btn.classList.add('bg-red-600');
+                    btn.innerHTML = '<i class="fa-solid fa-stop"></i> ট্র্যাকিং বন্ধ করুন';
+                    status.innerText = "লাইভ জিপিএস লোকেশন প্রতি ২ সেকেন্ডে আপডেট হচ্ছে...";
+                }
+            } else {
+                if (gpsWatchId) navigator.geolocation.clearWatch(gpsWatchId);
+                isTracking = false;
+                btn.classList.remove('bg-red-600');
+                btn.classList.add('bg-blue-600');
+                btn.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i> লাইভ ট্র্যাকিং অন করুন';
+                status.innerText = "ট্র্যাকিং বন্ধ রয়েছে।";
+            }
+        }
+
+        // Ticket Generation Engine
+        function generateTicket() {
+            const from = document.getElementById('ticketFrom').value;
+            const to = document.getElementById('ticketTo').value;
+            if(!from || !to) {
+                alert("দয়া করে যাত্রা শুরুর স্থান এবং গন্তব্য লিখুন।");
+                return;
+            }
+            document.getElementById('ticketResult').classList.remove('hidden');
+            const qrContainer = document.getElementById('ticketQRCode');
+            qrContainer.innerHTML = "";
+            new QRCode(qrContainer, {
+                text: `PB-TICKET:${from}-${to}-₹20`,
+                width: 120,
+                height: 120
+            });
+            speak("আপনার টিকিট সফলভাবে জেনারেট হয়েছে।", isEnglish ? 'en-IN' : 'bn-IN');
+        }
+
+        // Camera QR Scanner Integration
+        function startScanner() {
+            const html5LtScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+            html5LtScanner.render((decodedText) => {
+                alert(`স্ক্যান সফল হয়েছে: ${decodedText}`);
+                html5LtScanner.clear();
+            }, (error) => {
+                // Scanning errors ignored for continuous stream
+            });
+        }
+
+        // Registration without OTP
+        function handleRegistration(e, role) {
+            e.preventDefault();
+            alert(`${role} রেজিস্ট্রেশন সফল হয়েছে! আপনার আইডি প্রস্তুত।`);
+        }
+
+        // WhatsApp Subscription Request Handler
+        function processSubscription() {
+            const days = document.getElementById('subDays').value;
+            const price = days * 10;
+            const whatsappMsg = `হ্যালো, আমি পাবলিক বাহনে ${days} দিনের জন্য (₹${price}) সাবস্ক্রিপশন পেতে পেমেন্ট করেছি। স্ক্রিনশট সংযুক্ত করা হলো।`;
+            const url = `https://wa.me/918343088730?text=${encodeURIComponent(whatsappMsg)}`;
+            window.open(url, '_blank');
+        }
+
+        // System Startup Onload
+        window.onload = function() {
+            switchView('customer');
+        };
+    </script>
+</body>
+</html>
